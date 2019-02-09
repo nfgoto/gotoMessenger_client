@@ -1,5 +1,4 @@
 import React, { Component, Fragment } from 'react';
-import openSocket from "socket.io-client";
 
 import Post from '../../components/Feed/Post/Post';
 import Button from '../../components/Button/Button';
@@ -36,28 +35,6 @@ class Feed extends Component {
       .catch(this.catchError);
 
     this.loadPosts();
-
-    const socket = openSocket('http://localhost:8000');
-    // react to events sent from server on the 'posts' channel
-    socket.on('posts', data => {
-      switch (data.action) {
-        case 'create':
-          this.addPost(data.post);
-          break;
-
-        case 'update':
-          this.updatePost(data.post);
-          break;
-
-        case 'delete':
-          this.loadPosts();
-          break;
-
-        default:
-          break;
-      }
-    }
-    )
   }
 
   addPost = post => {
@@ -171,34 +148,55 @@ class Feed extends Component {
     formData.append('content', postData.content);
     formData.append('image', postData.image);
 
-    let url = 'http://localhost:8000/feed/post';
-    let method = 'POST';
-    if (this.state.editPost) {
-      url = `http://localhost:8000/feed/post/${this.state.editPost._id}`;
-      method = 'PUT';
-    }
+    const graphqlQuery = {
+      query: `
+      mutation {
+        createPost(postInput: {
+         title: "${postData.title}"
+         content: "${postData.content}"
+         imageUrl: "todo rodo"
+       }) {
+         post{
+          _id
+          title
+          content
+          createdAt
+        }
+          creator {
+            _id
+            name
+          }
+        }
+       }`
+    };
 
-    fetch(url, {
-      method,
+    fetch('http://localhost:8000/graphql', {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.props.token}`
+        Authorization: `Bearer ${this.props.token}`,
+        'Content-Type': 'application/json'
       },
-      body: formData
+      body: JSON.stringify(graphqlQuery)
     })
       .then(res => {
-        if (res.status !== 200 && res.status !== 201) {
-          throw new Error('Creating or editing a post failed!');
-        }
         return res.json();
       })
       .then(resData => {
-        // const post = {
-        //   _id: resData.post._id,
-        //   title: resData.post.title,
-        //   content: resData.post.content,
-        //   creator: resData.post.creator,
-        //   createdAt: resData.post.createdAt
-        // };
+        if (resData.errors && resData.errors.status === 422) {
+          throw new Error('Validation failed. Make Sure You have Entered The Correct Email/Password');
+        }
+        if (resData.errors) {
+          throw new Error('Login Failed.');
+        }
+
+        console.log(resData)
+        const post = {
+          _id: resData.data.createPost.post._id,
+          title: resData.data.createPost.post.title,
+          content: resData.data.createPost.post.content,
+          creator: resData.data.createPost.creator._id,
+          createdAt: resData.data.createPost.post.createdAt
+        };
         this.setState(prevState => {
           return {
             isEditing: false,

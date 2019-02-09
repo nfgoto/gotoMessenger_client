@@ -81,21 +81,21 @@ class App extends Component {
       })
       .then(resData => {
         if (resData.errors && resData.errors.status === 422) {
-          throw new Error('Validation failed.');
+          throw new Error('Validation failed. Make Sure You have Entered The Correct Email/Password');
         }
         if (resData.errors) {
-          throw new Error('An Error Has Occurred.');
+          throw new Error('Login Failed.');
         }
 
         console.log(resData);
         this.setState({
           isAuth: true,
-          token: resData.token,
+          token: resData.data.login.token,
           authLoading: false,
-          userId: resData.userId
+          userId: resData.data.login.userId
         });
-        localStorage.setItem('token', resData.token);
-        localStorage.setItem('userId', resData.userId);
+        localStorage.setItem('token', resData.data.login.token);
+        localStorage.setItem('userId', resData.data.login.userId);
         const remainingMilliseconds = 60 * 60 * 1000;
         const expiryDate = new Date(
           new Date().getTime() + remainingMilliseconds
