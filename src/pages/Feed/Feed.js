@@ -22,15 +22,30 @@ class Feed extends Component {
   };
 
   componentDidMount() {
-    fetch('URL')
-      .then(res => {
-        if (res.status !== 200) {
-          throw new Error('Failed to fetch user status.');
+    const graphqlQuery = {
+      query: `
+      query {
+        user {
+          status
         }
+      }`
+    };
+    fetch('http://localhost:8000/graphql', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.props.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(graphqlQuery)
+    })
+      .then(res => {
         return res.json();
       })
       .then(resData => {
-        this.setState({ status: resData.status });
+        if (resData.errors) {
+          throw new Error('Get User Status Failed.');
+        }
+        this.setState({ status: resData.data.user.status });
       })
       .catch(this.catchError);
 
@@ -129,15 +144,31 @@ class Feed extends Component {
 
   statusUpdateHandler = event => {
     event.preventDefault();
-    fetch('URL')
+    const graphqlQuery = {
+      query: `
+      mutation {
+        editUserStatus(newStatus: "${this.state.status}")
+      }`
+    };
+    fetch('http://localhost:8000/graphql', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.props.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(graphqlQuery)
+    })
       .then(res => {
-        if (res.status !== 200 && res.status !== 201) {
-          throw new Error("Can't update status!");
-        }
         return res.json();
       })
       .then(resData => {
-        console.log(resData);
+        if (resData.errors && resData.errors.status === 422) {
+          throw new Error('Validation failed. Enter A Valid  Status');
+        }
+        if (resData.errors) {
+          throw new Error('Status Edit Failed.');
+        }
+        console.log(resData.data.editStatus);
       })
       .catch(this.catchError);
   };
