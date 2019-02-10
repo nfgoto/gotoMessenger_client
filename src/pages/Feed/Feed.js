@@ -97,7 +97,7 @@ class Feed extends Component {
     }
     const graphqlQuery = {
       query: `
-      query fetchPosts(page: Int!) {
+      query FetchPosts($page: Int!) {
         fetchPosts(page: $page){
           posts {
             _id
@@ -149,9 +149,12 @@ class Feed extends Component {
     event.preventDefault();
     const graphqlQuery = {
       query: `
-      mutation {
-        editUserStatus(newStatus: "${this.state.status}")
-      }`
+      mutation editUserStatus($newStatus: String!) {
+        editUserStatus(newStatus: $newStatus)
+      }`,
+      variables: {
+        newStatus: this.state.status
+      }
     };
     fetch('http://localhost:8000/graphql', {
       method: 'POST',
@@ -220,11 +223,11 @@ class Feed extends Component {
 
       let graphqlQuery = {
         query: `
-        mutation {
+        mutation CreateNewPost($title: String!, $content: String!, $imageUrl: String!) {
           createPost(postInput: {
-           title: "${postData.title}"
-           content: "${postData.content}"
-           imageUrl: "${imageUrl}"
+           title: $title
+           content: $content
+           imageUrl: $imageUrl
          }) {
             _id
             title
@@ -236,17 +239,22 @@ class Feed extends Component {
               name
             }
           }
-         }`
+         }`,
+        variables: {
+          title: postData.title,
+          content: postData.content,
+          imageUrl
+        }
       };
 
       if (this.state.editPost) {
         graphqlQuery = {
           query: `
-            mutation {
-              editPost(postId: "${this.state.editPost._id}", postInput: {
-                title: "${postData.title}"
-                content: "${postData.content}"
-                imageUrl: "${imageUrl}"
+            mutation EditExistingPost($postId: ID!, $title: String!, $content: String!, $imageUrl: String!) {
+              editPost(postId: $postId, postInput: {
+                title: $title
+                content: $content
+                imageUrl: $imageUrl
               }){
                 _id
                 title
@@ -259,7 +267,13 @@ class Feed extends Component {
                   name
                 }
               }
-            }`
+            }`,
+          variables: {
+            postId: this.state.editPost._id,
+            title: postData.title,
+            content: postData.content,
+            imageUrl: imageUrl || 'undefined'
+          }
         };
       }
 
@@ -301,21 +315,27 @@ class Feed extends Component {
         };
         this.setState(prevState => {
           let updatedPosts = [...prevState.posts];
+          let updatedTotalPosts = prevState.totalPosts;
+
           if (prevState.editPost) {
             const postIndex = prevState.posts.findIndex(
               p => p._id === prevState.editPost._id
             );
             updatedPosts[postIndex] = post;
           } else {
-            // to show latest post and keep sane number of posts per page
-            updatedPosts.pop();
+            updatedTotalPosts++;
+            if (prevState.posts.length >= 2) {
+              // to show latest post and keep sane number of posts per page
+              updatedPosts.pop();
+            }
             updatedPosts.unshift(post);
           }
           return {
             posts: updatedPosts,
             isEditing: false,
             editPost: null,
-            editLoading: false
+            editLoading: false,
+            totalPosts: updatedTotalPosts
           };
         });
       })
@@ -338,15 +358,18 @@ class Feed extends Component {
     this.setState({ postsLoading: true });
     const graphqlQuery = {
       query: `
-      mutation {
-        deletePost(postId: "${postId}") {
+      mutation DeletePost($postId: ID!) {
+        deletePost(postId: $postId) {
           title
           content
           imageUrl
           createdAt
           ipdatedAt
         }
-      }`
+      }`,
+      variables: {
+        postId
+      }
     };
     fetch(`http://localhost:8000/graphql`, {
       method: 'POST',
