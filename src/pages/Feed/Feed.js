@@ -88,6 +88,7 @@ class Feed extends Component {
             _id
             title
             content
+            imageUrl
             createdAt
             creator {
               name
@@ -183,7 +184,7 @@ class Feed extends Component {
     ).then(resData => {
       const imageUrl = resData.filepath;
 
-      const graphqlQuery = {
+      let graphqlQuery = {
         query: `
         mutation {
           createPost(postInput: {
@@ -191,13 +192,11 @@ class Feed extends Component {
            content: "${postData.content}"
            imageUrl: "${imageUrl}"
          }) {
-           post{
             _id
             title
             content
             imageUrl
             createdAt
-          }
             creator {
               _id
               name
@@ -205,6 +204,30 @@ class Feed extends Component {
           }
          }`
       };
+
+      if (this.state.editPost) {
+        graphqlQuery = {
+          query: `
+            mutation {
+              editPost(postId: "${this.state.editPost._id}", postInput: {
+                title: "${postData.title}"
+                content: "${postData.content}"
+                imageUrl: "${imageUrl}"
+              }){
+                _id
+                title
+                title
+                content
+                imageUrl
+                createdAt
+                creator {
+                  _id
+                  name
+                }
+              }
+            }`
+        };
+      }
 
       return fetch('http://localhost:8000/graphql', {
         method: 'POST',
@@ -227,14 +250,20 @@ class Feed extends Component {
           throw new Error('Login Failed.');
         }
 
+        let commandKey = 'createPost';
+
+        if (this.state.editPost) {
+          commandKey = 'editPost';
+        }
+
         console.log(resData)
         const post = {
-          _id: resData.data.createPost.post._id,
-          title: resData.data.createPost.post.title,
-          content: resData.data.createPost.post.content,
-          creator: resData.data.createPost.creator._id,
-          createdAt: resData.data.createPost.post.createdAt,
-          imagePath: resData.data.createPost.post.imageUrl,
+          _id: resData.data[commandKey]._id,
+          title: resData.data[commandKey].title,
+          content: resData.data[commandKey].content,
+          creator: resData.data[commandKey].creator._id,
+          createdAt: resData.data[commandKey].createdAt,
+          imagePath: resData.data[commandKey].imageUrl,
         };
         this.setState(prevState => {
           let updatedPosts = [...prevState.posts];
